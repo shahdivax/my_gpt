@@ -1,0 +1,6 @@
+datasets
+transformers>=4.34.0  # Specify a minimum version for compatibility
+tokenizers
+torch
+pyyaml
+tqdm #for nice progress bars

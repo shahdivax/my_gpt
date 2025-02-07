@@ -1,0 +1,141 @@
+# dataset:
+#   name: "HuggingFaceFW/fineweb"
+#   subset: "CC-MAIN-2024-51"  # Will filter using filter function
+#   streaming: True
+#   text_column: "text"
+#   max_length: 512  # Reduced from 1024
+#   target_size_gb: 2.5  # Target size in GB, for data collection
+
+# tokenizer:
+#   model_path: "models/tokenizer"
+#   vocab_size: 50000
+#   min_frequency: 2
+
+# model:
+#   vocab_size: 100000   # Will be overridden by the tokenizer's vocab size
+#   n_embd: 640          # For ~100M params
+#   n_layer: 12
+#   n_head: 10
+#   n_positions: 512
+#   gradient_checkpointing: false  # Disabled to speed up computation
+
+# training:
+#   output_dir: "./my_model"
+#   overwrite_output_dir: true
+#   num_train_epochs: 5
+#   per_device_train_batch_size: 4
+#   gradient_accumulation_steps: 8
+#   save_steps: 500
+#   logging_steps: 100
+#   learning_rate: 0.0001
+#   weight_decay: 0.01
+#   fp16: true  # Use fp16 since T4 is optimized for FP16
+#   dataloader_num_workers: 4
+#   push_to_hub: false
+#   report_to: "wandb"
+#   wandb:
+#     project: "my-gpt"
+#     entity: "jackfruit-crackers"
+#     name: "gpt-t4-100M"
+#     watch: "all"
+#     log_model: true
+#   deepspeed:
+#     zero_force_ds_cpu_optimizer: false
+#     zero_allow_untested_optimizer: true
+#     zero_optimization:
+#       stage: 2  # Use stage 2 to reduce overhead compared to stage 3
+#     bf16:
+#       enabled: false  # Disable bf16 since we are using fp16
+#     gradient_accumulation_steps: 8
+#     gradient_clipping: 1.0
+#     train_batch_size: 64
+#     train_micro_batch_size_per_gpu: 8
+#     wall_clock_breakdown: false
+
+# inference:
+#    model_path: "./my_model"
+#    prompt: "Once upon a time"
+#    max_new_tokens: 50
+#    temperature: 0.7
+#    top_k: 50
+#    top_p: 0.95
+#    do_sample: true
+
+
+dataset:
+  name: "HuggingFaceFW/fineweb"
+  subset: "CC-MAIN-2024-51"  # Will filter using filter function
+  streaming: True
+  text_column: "text"
+  max_length: 512  # Reduced from 1024
+  target_size_gb: 2.5  # Target size in GB, for data collection
+
+tokenizer:
+  model_path: "models/tokenizer"
+  vocab_size: 50000
+  min_frequency: 2 # Options: cl100k_base, p50k_base, r50k_base
+
+model:
+  vocab_size: 100000   # Will be overridden by the tokenizer's vocab size
+  n_embd: 640          # For ~100M params
+  n_layer: 12
+  n_head: 10
+  n_positions: 512
+  gradient_checkpointing: false  # Disabled to speed up computation
+
+training:
+  output_dir: "./my_model"
+  overwrite_output_dir: true
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 8
+  save_steps: 5000
+  logging_steps: 500
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  fp16: true  # Use fp16 since T4 is optimized for FP16
+  dataloader_num_workers: 4
+  push_to_hub: false
+  report_to: "wandb"
+  wandb:
+    project: "my-gpt"
+    entity: "jackfruit-crackers"
+    name: "gpt-t4-100M"
+    watch: "all"
+    log_model: true
+  deepspeed:
+    zero_force_ds_cpu_optimizer: false
+    zero_allow_untested_optimizer: true
+    fp16:
+      enabled: true
+      initial_scale_power: 12  # Start with 2^12 = 4096
+      loss_scale_window: 100
+      min_loss_scale: 1.0
+      hysteresis: 2
+    zero_optimization:
+      stage: 2
+      allgather_partitions: true
+      reduce_scatter: true
+      overlap_comm: true
+      contiguous_gradients: true
+    gradient_accumulation_steps: 8
+    gradient_clipping: 1.0
+    train_batch_size: 64
+    train_micro_batch_size_per_gpu: 8
+    wall_clock_breakdown: false
+    scheduler:
+      type: "WarmupDecayLR"
+      params:
+        total_num_steps: 10000
+        warmup_min_lr: 0
+        warmup_max_lr: 0.0001
+        warmup_num_steps: 100
+
+inference:
+   model_path: "./my_model"
+   prompt: "Once upon a time"
+   max_new_tokens: 50
+   temperature: 0.7
+   top_k: 50
+   top_p: 0.95
+   do_sample: true
