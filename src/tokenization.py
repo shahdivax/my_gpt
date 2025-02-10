@@ -5,6 +5,47 @@ from utils import load_config, setup_logging
 from glob import glob
 from tqdm import tqdm
 import json
+import torch
+
+class CustomTokenizer:
+    """Wrapper around ByteLevelBPETokenizer with additional functionality."""
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+        self._vocab_size = len(tokenizer.get_vocab())
+        self.pad_token_id = tokenizer.token_to_id("<|pad|>")
+        self.eos_token_id = tokenizer.token_to_id("<|endoftext|>")
+    
+    def get_vocab_size(self):
+        return self._vocab_size
+    
+    def batch_encode(self, texts, padding=True, truncation=True, max_length=None, return_tensors=None):
+        encodings = self.tokenizer.encode_batch(texts)
+        if max_length and truncation:
+            encodings = [enc.ids[:max_length] for enc in encodings]
+        if padding:
+            max_len = max(len(enc.ids) for enc in encodings)
+            padded = []
+            for enc in encodings:
+                pad_length = max_len - len(enc.ids)
+                padded.append(enc.ids + [self.pad_token_id] * pad_length)
+            encodings = padded
+        if return_tensors == "pt":
+            return {
+                "input_ids": torch.tensor(encodings),
+                "attention_mask": torch.ones_like(torch.tensor(encodings))
+            }
+        return {"input_ids": encodings}
+    
+    def decode(self, token_ids):
+        """Decode a list of token IDs back to a string."""
+        if isinstance(token_ids, torch.Tensor):
+            token_ids = token_ids.tolist()
+        
+        # Filter out padding tokens
+        token_ids = [t for t in token_ids if t != self.pad_token_id]
+        
+        # Use the underlying tokenizer's decode method
+        return self.tokenizer.decode(token_ids)
 
 def train_tokenizer(config):
     """Trains a custom BPE tokenizer using the tokenizers library."""
@@ -71,7 +112,7 @@ def get_tokenizer(config):
     if not os.path.exists(os.path.join(model_path, "vocab.json")):
         raise ValueError(f"No tokenizer found at {model_path}. Please train the tokenizer first.")
     
-    tokenizer = ByteLevelBPETokenizer(
+    base_tokenizer = ByteLevelBPETokenizer(
         os.path.join(model_path, "vocab.json"),
         os.path.join(model_path, "merges.txt")
     )
@@ -83,35 +124,12 @@ def get_tokenizer(config):
         "unk_token": "<|unk|>",
         "mask_token": "<|mask|>"
     }
-    tokenizer.add_special_tokens(list(special_tokens.values()))
+    base_tokenizer.add_special_tokens(list(special_tokens.values()))
     
-    # Add methods to match expected interface
-    def get_vocab_size():
-        return tokenizer.get_vocab_size()
+    # Create wrapped tokenizer
+    tokenizer = CustomTokenizer(base_tokenizer)
     
-    def batch_encode(texts, padding=True, truncation=True, max_length=None, return_tensors=None):
-        encodings = tokenizer.encode_batch(texts)
-        if max_length and truncation:
-            encodings = [enc.ids[:max_length] for enc in encodings]
-        if padding:
-            max_len = max(len(enc.ids) for enc in encodings)
-            padded = []
-            for enc in encodings:
-                pad_length = max_len - len(enc.ids)
-                padded.append(enc.ids + [tokenizer.token_to_id("<|pad|>")] * pad_length)
-            encodings = padded
-        if return_tensors == "pt":
-            import torch
-            return {
-                "input_ids": torch.tensor(encodings),
-                "attention_mask": torch.ones_like(torch.tensor(encodings))
-            }
-        return {"input_ids": encodings}
-    
-    tokenizer.get_vocab_size = get_vocab_size
-    tokenizer.batch_encode = batch_encode
-    
-    print(f"Tokenizer loaded successfully. Vocab size: {tokenizer.get_vocab_size()}")
+    print(f"ByteLevelBPE tokenizer loaded successfully. Vocab size: {tokenizer.get_vocab_size()}")
     return tokenizer
 
 if __name__ == "__main__":

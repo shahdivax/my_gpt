@@ -226,15 +226,14 @@ def train_model(config):
     model, optimizer, train_loader = accelerator.prepare(model, optimizer, train_loader)
     
     # Calculate approximate steps per epoch based on target dataset size
-    # Assuming average sequence length and batch size
     avg_seq_length = config["dataset"]["max_length"] // 2  # Average sequence length
     batch_size = config["training"]["per_device_train_batch_size"]
-    target_size_gb = config["dataset"].get("target_size_gb", 2.5)  # Default to 2.5GB if not specified
-    chars_per_token = 4  # Rough estimate
+    target_size_gb = config["dataset"].get("target_size_gb", 2.5)
+    chars_per_token = 4
     total_tokens = (target_size_gb * 1024 * 1024 * 1024) // chars_per_token
-    steps_per_epoch = total_tokens // (avg_seq_length * batch_size)
+    steps_per_epoch = int(total_tokens // (avg_seq_length * batch_size))  # Convert to int
     total_epochs = config["training"]["num_train_epochs"]
-    total_steps = steps_per_epoch * total_epochs
+    total_steps = int(steps_per_epoch * total_epochs)  # Convert to int
     
     print(f"\nTraining Statistics (Estimated):")
     print(f"Total epochs: {total_epochs}")
@@ -336,7 +335,8 @@ def train_model(config):
             # Log metrics based on logging_steps
             if num_batches % config["training"]["logging_steps"] == 0:
                 if accelerator.is_main_process:
-                    accelerator.log(training_stats)
+                    current_step = int(num_batches + (epoch * steps_per_epoch))  # Convert to int
+                    accelerator.log(training_stats, step=current_step)
             
             # Save checkpoint based on save_steps
             if num_batches % config["training"]["save_steps"] == 0:
@@ -373,13 +373,14 @@ def train_model(config):
             estimated_remaining_time = epochs_remaining * epoch_time / 60
             print(f"Estimated time for remaining {epochs_remaining} epochs: {estimated_remaining_time:.1f} minutes")
             
-            # Log epoch summary to wandb
+            # Log epoch summary to wandb with correct step
+            current_step = int((epoch + 1) * steps_per_epoch)  # Convert to int
             accelerator.log({
                 'epoch/average_loss': epoch_avg_loss,
                 'epoch/perplexity': epoch_perplexity.item(),
                 'epoch/time': epoch_time,
                 'epoch/samples_processed': samples_processed,
-            }, step=total_steps)
+            }, step=current_step)
     
     # Save final model
     if accelerator.is_local_main_process:

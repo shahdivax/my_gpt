@@ -1,67 +1,3 @@
-# dataset:
-#   name: "HuggingFaceFW/fineweb"
-#   subset: "CC-MAIN-2024-51"  # Will filter using filter function
-#   streaming: True
-#   text_column: "text"
-#   max_length: 512  # Reduced from 1024
-#   target_size_gb: 2.5  # Target size in GB, for data collection
-
-# tokenizer:
-#   model_path: "models/tokenizer"
-#   vocab_size: 50000
-#   min_frequency: 2
-
-# model:
-#   vocab_size: 100000   # Will be overridden by the tokenizer's vocab size
-#   n_embd: 640          # For ~100M params
-#   n_layer: 12
-#   n_head: 10
-#   n_positions: 512
-#   gradient_checkpointing: false  # Disabled to speed up computation
-
-# training:
-#   output_dir: "./my_model"
-#   overwrite_output_dir: true
-#   num_train_epochs: 5
-#   per_device_train_batch_size: 4
-#   gradient_accumulation_steps: 8
-#   save_steps: 500
-#   logging_steps: 100
-#   learning_rate: 0.0001
-#   weight_decay: 0.01
-#   fp16: true  # Use fp16 since T4 is optimized for FP16
-#   dataloader_num_workers: 4
-#   push_to_hub: false
-#   report_to: "wandb"
-#   wandb:
-#     project: "my-gpt"
-#     entity: "jackfruit-crackers"
-#     name: "gpt-t4-100M"
-#     watch: "all"
-#     log_model: true
-#   deepspeed:
-#     zero_force_ds_cpu_optimizer: false
-#     zero_allow_untested_optimizer: true
-#     zero_optimization:
-#       stage: 2  # Use stage 2 to reduce overhead compared to stage 3
-#     bf16:
-#       enabled: false  # Disable bf16 since we are using fp16
-#     gradient_accumulation_steps: 8
-#     gradient_clipping: 1.0
-#     train_batch_size: 64
-#     train_micro_batch_size_per_gpu: 8
-#     wall_clock_breakdown: false
-
-# inference:
-#    model_path: "./my_model"
-#    prompt: "Once upon a time"
-#    max_new_tokens: 50
-#    temperature: 0.7
-#    top_k: 50
-#    top_p: 0.95
-#    do_sample: true
-
-
 dataset:
   name: "HuggingFaceFW/fineweb"
   subset: "CC-MAIN-2024-51"  # Will filter using filter function
@@ -76,12 +12,12 @@ tokenizer:
   min_frequency: 2 # Options: cl100k_base, p50k_base, r50k_base
 
 model:
-  vocab_size: 100000   # Will be overridden by the tokenizer's vocab size
-  n_embd: 640          # For ~100M params
+  vocab_size: 50000   # Match this with tokenizer.vocab_size
+  n_embd: 640
   n_layer: 12
   n_head: 10
   n_positions: 512
-  gradient_checkpointing: false  # Disabled to speed up computation
+  gradient_checkpointing: false
 
 training:
   output_dir: "./my_model"
@@ -126,10 +62,10 @@ training:
     scheduler:
       type: "WarmupDecayLR"
       params:
-        total_num_steps: 10000
-        warmup_min_lr: 0
-        warmup_max_lr: 0.0001
-        warmup_num_steps: 100
+        total_num_steps: 1310720    # Your calculated total steps
+        warmup_min_lr: 0.000001     # 1e-6 written as decimal
+        warmup_max_lr: 0.0001       # 1e-4 written as decimal
+        warmup_num_steps: 5000      # About 0.15% of total steps
 
 inference:
    model_path: "./my_model"
